@@ -1,0 +1,9 @@
+# Knowledge vaults (ChromaDB collections) that agents bind to by name.
+# A vault is created on first use. Point collection/db_path at an existing
+# ChromaDB to reuse it — e.g. ai-workflow's `obsidian_vault`.
+vaults:
+  demo_kb:
+    collection: demo_kb
+  # obsidian_vault:
+  #   collection: obsidian_vault
+  #   db_path: C:\ai-workflow\rag\chroma_db

@@ -1,0 +1,12 @@
+# Global default LLM backend. Override per-agent in configs/agents/*.yaml,
+# or globally via env vars (VAULTMIND_BACKEND / VAULTMIND_MODEL).
+default_backend: ollama
+default_model: phi3:mini
+
+# Available backends (API keys are read from the environment — see .env.example
+# and run `python setup_env.py`):
+#   ollama    - local, no key needed          (default model: phi3:mini)
+#   openai    - OPENAI_API_KEY                 (default: gpt-4o-mini)
+#   anthropic - ANTHROPIC_API_KEY              (default: claude-sonnet-5)
+#   gemini    - GEMINI_API_KEY                 (default: gemini-2.5-flash)
+#   grok      - XAI_API_KEY (OpenAI-compatible)(default: grok-2-latest)

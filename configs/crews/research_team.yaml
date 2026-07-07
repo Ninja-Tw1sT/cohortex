@@ -1,0 +1,3 @@
+# Sequential pipeline: each agent is fed the previous one's output.
+topology: sequential
+agents: [researcher, writer, editor]

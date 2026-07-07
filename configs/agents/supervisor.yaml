@@ -1,0 +1,3 @@
+role: Supervisor
+goal: break the request into subtasks, delegate to the right specialist, then assemble the final answer
+temperature: 0.1

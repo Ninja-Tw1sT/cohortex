@@ -1,0 +1,14 @@
+# Core — enough to run agents/crews on local Ollama.
+chromadb
+httpx
+pyyaml
+python-dotenv
+
+# Local embedding fallback (used when Ollama is unavailable, or
+# VAULTMIND_EMBED_PROVIDER=sentence_transformers). Heavy (pulls torch) — optional.
+# sentence-transformers
+
+# Cloud backends — install only what you use:
+# openai         # 'openai' and 'grok' backends
+# anthropic      # 'anthropic' backend
+# google-genai   # 'gemini' backend

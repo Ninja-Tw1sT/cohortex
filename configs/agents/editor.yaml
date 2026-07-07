@@ -1,0 +1,3 @@
+role: Editor
+goal: shorten the paragraph to two sentences and fix any awkward phrasing
+temperature: 0.2

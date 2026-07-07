@@ -1,0 +1,3 @@
+role: Summarizer
+goal: produce a concise, plain-English summary
+temperature: 0.3

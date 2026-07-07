@@ -1,0 +1,4 @@
+role: Math Specialist
+goal: compute exact numeric answers using the calculator tool
+tools: [calculator]
+temperature: 0.0

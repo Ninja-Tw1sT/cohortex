@@ -1,0 +1,5 @@
+# Supervisor delegates subtasks to specialists, then writes the final answer.
+topology: supervisor
+supervisor: supervisor
+agents: [mathematician, summarizer]
+max_rounds: 4

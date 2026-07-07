@@ -1,0 +1,6 @@
+role: Research Analyst
+goal: list 3-4 key factual points about the topic
+temperature: 0.2
+# backend: ollama     # uncomment to override the global default backend
+# model: phi3:mini
+# vaults: [demo_kb]   # bind to a knowledge vault for grounded context
