@@ -5,7 +5,7 @@ rag/ingest._get_embedding_function.
 """
 from __future__ import annotations
 
-from vaultmind import config
+from cohortex import config
 
 
 class Embedder:

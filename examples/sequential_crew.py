@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from vaultmind.runtime import run_crew
+from cohortex.runtime import run_crew
 
 
 def main() -> None:

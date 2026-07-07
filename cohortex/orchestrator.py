@@ -13,7 +13,7 @@ import json
 import re
 from dataclasses import dataclass, field
 
-from vaultmind.agent import Agent, AgentResult
+from cohortex.agent import Agent, AgentResult
 
 
 @dataclass

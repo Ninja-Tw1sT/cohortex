@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Securely configure cloud-backend API keys for VaultMind.
+Securely configure cloud-backend API keys for Cohortex.
 
 - Reads secrets with getpass (never echoed, never in shell history).
 - Writes them to a local `.env` that is gitignored (verified before writing).
@@ -99,7 +99,7 @@ def write_env(values: dict[str, str]) -> None:
 
 
 def main() -> int:
-    print("VaultMind secure key setup — values are hidden as you type.")
+    print("Cohortex secure key setup — values are hidden as you type.")
     ensure_gitignored()
     existing = load_existing()
     values = {name: prompt_for(name, desc, existing.get(name, "")) for name, desc, _ in VARS}

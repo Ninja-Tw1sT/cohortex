@@ -8,10 +8,10 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from vaultmind.agent import Agent
-from vaultmind.orchestrator import Crew
-from vaultmind.profiles import AgentProfile
-from vaultmind.tools import ToolRegistry, calculator, word_count
+from cohortex.agent import Agent
+from cohortex.orchestrator import Crew
+from cohortex.profiles import AgentProfile
+from cohortex.tools import ToolRegistry, calculator, word_count
 
 
 class ConstBackend:

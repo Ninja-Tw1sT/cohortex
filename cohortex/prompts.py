@@ -2,7 +2,7 @@
 a chat-message list (system + user with vault context + optional upstream input)."""
 from __future__ import annotations
 
-from vaultmind.profiles import AgentProfile
+from cohortex.profiles import AgentProfile
 
 _CONTEXT_HEADER = "## Context from knowledge vault(s)\n\n"
 _CHUNK = "### [{i}] {title} (distance {distance:.3f})\n{document}\n\n"

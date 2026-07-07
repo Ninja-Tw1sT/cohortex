@@ -1,4 +1,4 @@
-"""Command-line interface:  python -m vaultmind run <crew> "<task>"."""
+"""Command-line interface:  python -m cohortex run <crew> "<task>"."""
 from __future__ import annotations
 
 import argparse
@@ -12,7 +12,7 @@ for _s in (sys.stdout, sys.stderr):
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="vaultmind", description="Run a VaultMind crew.")
+    p = argparse.ArgumentParser(prog="cohortex", description="Run a Cohortex crew.")
     sub = p.add_subparsers(dest="cmd")
 
     run = sub.add_parser("run", help="run a crew against a task")
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     if args.cmd == "backends":
-        from vaultmind.providers import available_backends
+        from cohortex.providers import available_backends
         print("\n".join(available_backends()))
         return 0
 
@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "run":
-        from vaultmind.runtime import run_crew
+        from cohortex.runtime import run_crew
         result = run_crew(args.crew, " ".join(args.task))
         if not args.quiet:
             for s in result.steps:
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _config():
-    from vaultmind import config
+    from cohortex import config
     return config
 
 

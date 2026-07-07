@@ -9,10 +9,10 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from vaultmind.agent import Agent
-from vaultmind.profiles import AgentProfile
-from vaultmind.providers import get_backend
-from vaultmind.vault import KnowledgeVault
+from cohortex.agent import Agent
+from cohortex.profiles import AgentProfile
+from cohortex.providers import get_backend
+from cohortex.vault import KnowledgeVault
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
     vault = KnowledgeVault("demo_kb", persistent=False)
     vault.add(
         [
-            "VaultMind is a modular multi-agent framework with pluggable LLM backends.",
+            "Cohortex is a modular multi-agent framework with pluggable LLM backends.",
             "A KnowledgeVault wraps a ChromaDB collection and returns top-k context for a query.",
             "An agent's backend is selectable: ollama (local), openai, anthropic, gemini, or grok.",
         ],
@@ -38,7 +38,7 @@ def main() -> None:
 
     # 3. Wire it up and run.
     agent = Agent(profile, get_backend(profile.backend, profile.model), vaults=[vault])
-    question = "What backends can a VaultMind agent use?"
+    question = "What backends can a Cohortex agent use?"
     result = agent.run(question)
 
     print(f"Backend: {agent.backend.name}  |  context hits: {result.meta.get('context_hits')}")

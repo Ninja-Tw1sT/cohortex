@@ -1,5 +1,5 @@
 """
-Configuration and env resolution for VaultMind.
+Configuration and env resolution for Cohortex.
 
 Loads `.env` from the project root and exposes the config directory plus a few
 global defaults. Everything else lives in YAML under `configs/` and is loaded on
@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 # Where backends.yaml, agents/*.yaml, crews/*.yaml, vaults.yaml live.
-CONFIG_DIR = Path(os.getenv("VAULTMIND_CONFIG_DIR", str(PROJECT_ROOT / "configs")))
+CONFIG_DIR = Path(os.getenv("COHORTEX_CONFIG_DIR", str(PROJECT_ROOT / "configs")))
 
 
 def load_yaml(path: Path) -> dict:
@@ -37,8 +37,8 @@ _BY = _backends_yaml()
 
 # Global default backend + model. Precedence: env var > backends.yaml > built-in.
 # Overridable per-agent in a profile.
-DEFAULT_BACKEND = os.getenv("VAULTMIND_BACKEND") or _BY.get("default_backend") or "ollama"
-DEFAULT_MODEL = os.getenv("VAULTMIND_MODEL") or _BY.get("default_model") or ""  # "" → backend default
+DEFAULT_BACKEND = os.getenv("COHORTEX_BACKEND") or _BY.get("default_backend") or "ollama"
+DEFAULT_MODEL = os.getenv("COHORTEX_MODEL") or _BY.get("default_model") or ""  # "" → backend default
 
 # Local Ollama endpoint(s). Comma-separated fallbacks are allowed.
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -47,8 +47,8 @@ OLLAMA_FALLBACK_URLS = [
 ]
 
 # Default vault store location (ChromaDB) + embedding model.
-VAULT_DB_PATH = Path(os.getenv("VAULTMIND_DB_PATH", str(PROJECT_ROOT / ".vaults")))
-EMBED_MODEL = os.getenv("VAULTMIND_EMBED_MODEL", "nomic-embed-text")
-EMBED_PROVIDER = os.getenv("VAULTMIND_EMBED_PROVIDER", "ollama")  # ollama|sentence_transformers|openai
+VAULT_DB_PATH = Path(os.getenv("COHORTEX_DB_PATH", str(PROJECT_ROOT / ".vaults")))
+EMBED_MODEL = os.getenv("COHORTEX_EMBED_MODEL", "nomic-embed-text")
+EMBED_PROVIDER = os.getenv("COHORTEX_EMBED_PROVIDER", "ollama")  # ollama|sentence_transformers|openai
 
-TOP_K_DEFAULT = int(os.getenv("VAULTMIND_TOP_K", "4"))
+TOP_K_DEFAULT = int(os.getenv("COHORTEX_TOP_K", "4"))

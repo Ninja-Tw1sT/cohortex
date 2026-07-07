@@ -11,11 +11,11 @@ import json
 import re
 from dataclasses import dataclass, field
 
-from vaultmind.profiles import AgentProfile
-from vaultmind.prompts import build_messages, build_system
-from vaultmind.providers import LLMBackend
-from vaultmind.tools import ToolRegistry
-from vaultmind.vault import KnowledgeVault
+from cohortex.profiles import AgentProfile
+from cohortex.prompts import build_messages, build_system
+from cohortex.providers import LLMBackend
+from cohortex.tools import ToolRegistry
+from cohortex.vault import KnowledgeVault
 
 
 @dataclass

@@ -1,5 +1,5 @@
 # Global default LLM backend. Override per-agent in configs/agents/*.yaml,
-# or globally via env vars (VAULTMIND_BACKEND / VAULTMIND_MODEL).
+# or globally via env vars (COHORTEX_BACKEND / COHORTEX_MODEL).
 default_backend: ollama
 default_model: phi3:mini
 

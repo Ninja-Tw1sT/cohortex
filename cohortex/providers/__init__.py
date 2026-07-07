@@ -62,7 +62,7 @@ class FallbackBackend:
 def get_backend(name: str | None = None, model: str | None = None,
                 fallback: list[str] | None = None, **cfg) -> LLMBackend:
     """Build a backend by name (or the global default) with an optional fallback chain."""
-    from vaultmind import config
+    from cohortex import config
     _ensure_loaded()
 
     def build(n: str) -> LLMBackend:

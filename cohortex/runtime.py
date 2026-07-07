@@ -1,18 +1,18 @@
 """
 Runtime — assemble agents and crews from YAML config and run them.
 
-    from vaultmind.runtime import run_crew
+    from cohortex.runtime import run_crew
     result = run_crew("research_team", "Explain vector databases")
 """
 from __future__ import annotations
 
-from vaultmind import config
-from vaultmind.agent import Agent
-from vaultmind.orchestrator import Crew, CrewResult
-from vaultmind.profiles import AgentProfile, load_profiles_dir
-from vaultmind.providers import get_backend
-from vaultmind.tools import ToolRegistry
-from vaultmind.vault import KnowledgeVault
+from cohortex import config
+from cohortex.agent import Agent
+from cohortex.orchestrator import Crew, CrewResult
+from cohortex.profiles import AgentProfile, load_profiles_dir
+from cohortex.providers import get_backend
+from cohortex.tools import ToolRegistry
+from cohortex.vault import KnowledgeVault
 
 _VAULT_CACHE: dict[str, KnowledgeVault] = {}
 

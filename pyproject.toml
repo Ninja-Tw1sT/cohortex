@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vaultmind"
+name = "cohortex"
 version = "0.1.0"
 description = "A modular, provider-agnostic multi-agent framework with pluggable knowledge vaults."
 readme = "README.md"
@@ -27,7 +27,7 @@ all = ["sentence-transformers", "openai", "anthropic", "google-genai"]
 dev = ["pytest"]
 
 [project.scripts]
-vaultmind = "vaultmind.cli:main"
+cohortex = "cohortex.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["vaultmind*"]
+include = ["cohortex*"]

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vaultmind import config
-from vaultmind.embeddings import Embedder, get_embedder
+from cohortex import config
+from cohortex.embeddings import Embedder, get_embedder
 
 Hit = dict  # {id, document, source, title, distance}
 

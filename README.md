@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="VaultMind" width="100%">
+  <img src="assets/banner.svg" alt="Cohortex" width="100%">
 </p>
 
 <p align="center">
@@ -18,12 +18,12 @@ and the knowledge vault(s) it should draw on — then run them **single**, **seq
 under a **supervisor**. Local-first by default; nothing but `httpx` is needed to run on Ollama.
 
 ```python
-from vaultmind.runtime import run_crew
+from cohortex.runtime import run_crew
 print(run_crew("research_team", "Why vector databases matter for AI").output)
 ```
 
 ## Why
-Most agent demos hard-wire one provider and one prompt. VaultMind makes the moving parts
+Most agent demos hard-wire one provider and one prompt. Cohortex makes the moving parts
 **configuration**: swap `gpt-4o-mini` for a local `phi3:mini` by editing one line; point an
 agent at a different knowledge base by changing a vault name; turn three agents into a
 supervised crew with a two-line YAML file. No code changes.
@@ -63,7 +63,7 @@ flowchart TD
 ## Quick start
 
 ```bash
-git clone <repo> vaultmind && cd vaultmind
+git clone <repo> cohortex && cd cohortex
 pip install -e .            # core deps (chromadb, httpx, pyyaml, python-dotenv)
 ollama pull phi3:mini       # local model for the examples (no API key)
 
@@ -76,9 +76,9 @@ python run_all_examples.py  # runs all three, reports pass/fail
 CLI:
 
 ```bash
-python -m vaultmind backends                     # list available backends
-python -m vaultmind crews                         # list configured crews
-python -m vaultmind run research_team "Explain RAG in two sentences"
+python -m cohortex backends                     # list available backends
+python -m cohortex crews                         # list configured crews
+python -m cohortex run research_team "Explain RAG in two sentences"
 ```
 
 ## Configure, don't code
@@ -106,8 +106,8 @@ Backends: `ollama` (local, no key), `openai`, `anthropic`, `gemini`, `grok` (xAI
 from the environment — run `python setup_env.py` (hidden input, writes a gitignored `.env`).
 
 ## Extending
-- **Add a backend:** one file in `vaultmind/providers/` with a class + `@register("name")`.
-- **Add a tool:** decorate a function with `@tool` in `vaultmind/tools/`; list it in a profile.
+- **Add a backend:** one file in `cohortex/providers/` with a class + `@register("name")`.
+- **Add a tool:** decorate a function with `@tool` in `cohortex/tools/`; list it in a profile.
 - **Add a vault:** a stanza in `configs/vaults.yaml` (`collection`, optional `db_path`).
 
 ## Security

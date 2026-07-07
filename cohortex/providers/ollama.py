@@ -8,7 +8,7 @@ from . import register
 class OllamaBackend:
     def __init__(self, model: str | None = None, base_url: str | None = None,
                  fallback_urls: list[str] | None = None, **_):
-        from vaultmind import config
+        from cohortex import config
         self.model = model or "phi3:mini"
         self._urls = [base_url or config.OLLAMA_BASE_URL]
         self._urls += fallback_urls if fallback_urls is not None else config.OLLAMA_FALLBACK_URLS
