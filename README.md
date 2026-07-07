@@ -1,4 +1,16 @@
-# VaultMind
+<p align="center">
+  <img src="assets/banner.svg" alt="VaultMind" width="100%">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10+-00f5ff?style=for-the-badge&logo=python&logoColor=0b0714" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/backends-5-ff00cc?style=for-the-badge" alt="5 backends">
+  <img src="https://img.shields.io/badge/tests-7%2F7%20passing-39ff14?style=for-the-badge" alt="tests 7/7">
+  <img src="https://img.shields.io/badge/license-MIT-8a5cff?style=for-the-badge" alt="MIT">
+  <img src="https://img.shields.io/badge/local--first-Ollama-00f5ff?style=for-the-badge" alt="local-first">
+</p>
+
+> `// modular · provider-agnostic · local-first`
 
 A modular, provider-agnostic **multi-agent framework** with pluggable knowledge vaults.
 Define agents in YAML — each with a role, an LLM backend (local Ollama or a cloud API),
@@ -19,6 +31,7 @@ supervised crew with a two-line YAML file. No code changes.
 ## Architecture
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#12071f','primaryTextColor':'#00f5ff','primaryBorderColor':'#ff00cc','lineColor':'#8a5cff','fontFamily':'monospace','clusterBkg':'#0b0714','clusterBorder':'#00f5ff','edgeLabelBackground':'#0b0714','secondaryColor':'#1a0a2e'}}}%%
 flowchart TD
     subgraph Config["configs/ (YAML)"]
         BK["backends.yaml<br/>default provider"]

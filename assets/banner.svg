@@ -1,0 +1,70 @@
+<svg viewBox="0 0 1200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VaultMind — modular multi-agent framework">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0714"/>
+      <stop offset="1" stop-color="#05040a"/>
+    </linearGradient>
+    <linearGradient id="wm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00f5ff"/>
+      <stop offset="0.55" stop-color="#8a5cff"/>
+      <stop offset="1" stop-color="#ff00cc"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 H0 V40" fill="none" stroke="#00f5ff" stroke-width="1" opacity="0.06"/>
+    </pattern>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- backdrop -->
+  <rect width="1200" height="260" fill="url(#bg)"/>
+  <rect width="1200" height="260" fill="url(#grid)"/>
+
+  <!-- perspective floor -->
+  <g stroke="#ff00cc" stroke-width="1" opacity="0.16">
+    <line x1="600" y1="200" x2="-120" y2="260"/>
+    <line x1="600" y1="200" x2="300" y2="260"/>
+    <line x1="600" y1="200" x2="600" y2="260"/>
+    <line x1="600" y1="200" x2="900" y2="260"/>
+    <line x1="600" y1="200" x2="1320" y2="260"/>
+  </g>
+  <g stroke="#00f5ff" stroke-width="1" opacity="0.12">
+    <line x1="0" y1="222" x2="1200" y2="222"/>
+    <line x1="0" y1="240" x2="1200" y2="240"/>
+  </g>
+
+  <!-- corner brackets -->
+  <g stroke="#00f5ff" stroke-width="2" fill="none" opacity="0.85">
+    <path d="M28 28 h34 M28 28 v34"/>
+    <path d="M1172 28 h-34 M1172 28 v34"/>
+    <path d="M28 232 h34 M28 232 v-34"/>
+    <path d="M1172 232 h-34 M1172 232 v-34"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="60" y="132" font-family="'Courier New', ui-monospace, monospace" font-size="82"
+        font-weight="bold" letter-spacing="6" fill="url(#wm)" filter="url(#glow)">VAULTMIND</text>
+
+  <!-- accent bar -->
+  <rect x="62" y="150" width="536" height="3" fill="url(#wm)" opacity="0.75"/>
+
+  <!-- taglines -->
+  <text x="64" y="184" font-family="ui-monospace, 'Courier New', monospace" font-size="21"
+        letter-spacing="4" fill="#00f5ff">// MODULAR MULTI-AGENT FRAMEWORK</text>
+  <text x="64" y="210" font-family="ui-monospace, 'Courier New', monospace" font-size="13"
+        letter-spacing="3" fill="#6f6f93">OLLAMA · OPENAI · ANTHROPIC · GEMINI · GROK   ▓▒░</text>
+
+  <!-- glyph -->
+  <g transform="translate(1010,130)" opacity="0.9">
+    <circle r="58" fill="none" stroke="#ff00cc" stroke-width="2" opacity="0.5"/>
+    <circle r="40" fill="none" stroke="#00f5ff" stroke-width="2" opacity="0.7"/>
+    <path d="M0,-40 V40 M-40,0 H40" stroke="#8a5cff" stroke-width="1.5" opacity="0.6"/>
+    <circle r="8" fill="#39ff14" filter="url(#glow)"/>
+    <circle cx="0" cy="-40" r="4" fill="#00f5ff"/>
+    <circle cx="40" cy="0" r="4" fill="#ff00cc"/>
+    <circle cx="0" cy="40" r="4" fill="#00f5ff"/>
+    <circle cx="-40" cy="0" r="4" fill="#ff00cc"/>
+  </g>
+</svg>
