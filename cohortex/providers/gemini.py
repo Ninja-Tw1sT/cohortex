@@ -22,12 +22,17 @@ class GeminiBackend:
             raise RuntimeError("GEMINI_API_KEY is not set")
         client = genai.Client(api_key=self._key)
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
-        convo = "\n\n".join(
-            f"{m['role'].upper()}: {m['content']}" for m in messages if m["role"] != "system"
-        )
+        # Preserve turn structure: Gemini uses roles "user" and "model".
+        contents = [
+            types.Content(
+                role="model" if m["role"] == "assistant" else "user",
+                parts=[types.Part(text=m["content"])],
+            )
+            for m in messages if m["role"] != "system"
+        ]
         resp = client.models.generate_content(
             model=self.model,
-            contents=convo,
+            contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system or None, temperature=temperature,
             ),

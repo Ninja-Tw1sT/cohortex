@@ -6,6 +6,8 @@ Runtime — assemble agents and crews from YAML config and run them.
 """
 from __future__ import annotations
 
+import threading
+
 from cohortex import config
 from cohortex.agent import Agent
 from cohortex.orchestrator import Crew, CrewResult
@@ -15,6 +17,7 @@ from cohortex.tools import ToolRegistry
 from cohortex.vault import KnowledgeVault
 
 _VAULT_CACHE: dict[str, KnowledgeVault] = {}
+_VAULT_LOCK = threading.Lock()
 
 
 def _vault_defs() -> dict:
@@ -23,13 +26,15 @@ def _vault_defs() -> dict:
 
 
 def get_vault(name: str, defs: dict | None = None) -> KnowledgeVault:
-    if name in _VAULT_CACHE:
-        return _VAULT_CACHE[name]
-    defs = _vault_defs() if defs is None else defs
-    d = defs.get(name, {})
-    v = KnowledgeVault(name=name, collection=d.get("collection", name), db_path=d.get("db_path"))
-    _VAULT_CACHE[name] = v
-    return v
+    # Lock so concurrent crews/threads don't race on first-time initialization.
+    with _VAULT_LOCK:
+        if name in _VAULT_CACHE:
+            return _VAULT_CACHE[name]
+        defs = _vault_defs() if defs is None else defs
+        d = defs.get(name, {})
+        v = KnowledgeVault(name=name, collection=d.get("collection", name), db_path=d.get("db_path"))
+        _VAULT_CACHE[name] = v
+        return v
 
 
 def build_agent(profile: AgentProfile, defs: dict | None = None) -> Agent:
@@ -44,10 +49,19 @@ def load_crew(name: str) -> Crew:
     crew_cfg = config.load_yaml(config.CONFIG_DIR / "crews" / f"{name}.yaml")
     profiles = load_profiles_dir(config.CONFIG_DIR / "agents")
     defs = _vault_defs()
-    agents = [build_agent(profiles[n], defs) for n in crew_cfg.get("agents", [])]
+
+    def _profile(agent_name: str) -> AgentProfile:
+        if agent_name not in profiles:
+            raise ValueError(
+                f"Crew {name!r} references unknown agent {agent_name!r}. "
+                f"Available agents: {sorted(profiles)}"
+            )
+        return profiles[agent_name]
+
+    agents = [build_agent(_profile(n), defs) for n in crew_cfg.get("agents", [])]
     supervisor = None
     if crew_cfg.get("supervisor"):
-        supervisor = build_agent(profiles[crew_cfg["supervisor"]], defs)
+        supervisor = build_agent(_profile(crew_cfg["supervisor"]), defs)
     return Crew(
         name,
         agents,

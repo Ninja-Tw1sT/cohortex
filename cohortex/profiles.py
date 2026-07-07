@@ -15,6 +15,7 @@ class AgentProfile:
     backend: str | None = None      # None → global default backend
     model: str | None = None        # None → backend's default model
     temperature: float = 0.3
+    max_tokens: int | None = None   # None → backend default (Anthropic uses 1024)
     system_prompt: str = ""
     vaults: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)

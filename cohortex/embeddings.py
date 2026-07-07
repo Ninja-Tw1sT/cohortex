@@ -23,6 +23,21 @@ class OllamaEmbedder(Embedder):
 
     def embed_batch(self, texts):
         import httpx
+        texts = list(texts)
+        # Prefer the batch endpoint (/api/embed takes a list); fall back to the
+        # older single-prompt /api/embeddings for pre-batch Ollama versions.
+        try:
+            r = httpx.post(
+                f"{self.base_url}/api/embed",
+                json={"model": self.model, "input": texts},
+                timeout=120,
+            )
+            r.raise_for_status()
+            embs = r.json().get("embeddings")
+            if embs and len(embs) == len(texts):
+                return embs
+        except Exception:  # noqa: BLE001 - fall through to per-item endpoint
+            pass
         out = []
         for t in texts:
             r = httpx.post(
@@ -63,10 +78,11 @@ def get_embedder(provider: str | None = None, model: str | None = None) -> Embed
         return SentenceTransformerEmbedder(model or "all-MiniLM-L6-v2")
     if provider == "openai":
         return OpenAIEmbedder(model or "text-embedding-3-small")
-    # Default: Ollama, but fall back to local sentence-transformers if unreachable.
+    # Default: Ollama. Probe cheaply via /api/tags (no embedding call); fall back
+    # to local sentence-transformers if the server is unreachable.
     try:
-        e = OllamaEmbedder(model)
-        e.embed("ping")
-        return e
+        import httpx
+        httpx.get(f"{config.OLLAMA_BASE_URL}/api/tags", timeout=3).raise_for_status()
+        return OllamaEmbedder(model)
     except Exception:
         return SentenceTransformerEmbedder("all-MiniLM-L6-v2")

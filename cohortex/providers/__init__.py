@@ -15,6 +15,9 @@ from typing import Protocol, runtime_checkable
 
 Message = dict  # {"role": "system"|"user"|"assistant", "content": str}
 
+__all__ = ["LLMBackend", "Message", "register", "get_backend",
+           "available_backends", "FallbackBackend"]
+
 
 @runtime_checkable
 class LLMBackend(Protocol):

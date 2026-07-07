@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from cohortex.agent import Agent
+from cohortex.jsonutil import first_json
 from cohortex.orchestrator import Crew
 from cohortex.profiles import AgentProfile
 from cohortex.tools import ToolRegistry, calculator, word_count
@@ -59,8 +60,20 @@ def test_profile_from_dict_ignores_unknown_keys():
 # ── tools ───────────────────────────────────────────────────────────────────
 def test_builtin_tools():
     assert calculator("2 + 2 * 3") == "8"
-    assert calculator("import os") == "error: only numbers and + - * / ( ) are allowed"
+    assert calculator("(3 + 4) * 2 - 1") == "13"
+    assert calculator("import os").startswith("error")   # rejects non-arithmetic
+    assert calculator("__import__('os')").startswith("error")
     assert word_count("the quick brown fox") == "4"
+
+
+def test_first_json_handles_nested_and_selection():
+    # Nested braces inside a value must not break extraction (regression for the
+    # old flat-regex parser).
+    obj = first_json('prefix {"agent": "foo", "task": "explain {x}"} suffix', ("agent", "final"))
+    assert obj == {"agent": "foo", "task": "explain {x}"}
+    # Skips objects that lack the required keys, returns the first that matches.
+    assert first_json('{"other": 1} {"answer": "42"}', ("answer",)) == {"answer": "42"}
+    assert first_json("no json here", ("answer",)) is None
 
 
 def test_tool_registry_scoping():

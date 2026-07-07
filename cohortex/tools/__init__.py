@@ -4,7 +4,8 @@ any agent whose profile lists it. Agents call tools via a ReAct loop (see agent.
 """
 from __future__ import annotations
 
-import re
+import ast
+import operator
 from typing import Callable
 
 _TOOLS: dict[str, dict] = {}
@@ -40,12 +41,31 @@ class ToolRegistry:
 
 
 # ── Built-in tools ──────────────────────────────────────────────────────────
+_ARITH_OPS = {
+    ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+    ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+    ast.Pow: operator.pow, ast.USub: operator.neg, ast.UAdd: operator.pos,
+}
+
+
+def _safe_arith(node):
+    """Evaluate an arithmetic AST with a strict node allowlist (no eval, no names)."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    if isinstance(node, ast.BinOp) and type(node.op) in _ARITH_OPS:
+        return _ARITH_OPS[type(node.op)](_safe_arith(node.left), _safe_arith(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _ARITH_OPS:
+        return _ARITH_OPS[type(node.op)](_safe_arith(node.operand))
+    raise ValueError("unsupported expression")
+
+
 @tool
 def calculator(expr: str) -> str:
     """Evaluate a basic arithmetic expression, e.g. '23 * (4 + 1)'."""
-    if not re.fullmatch(r"[0-9+\-*/(). ]+", expr):
-        return "error: only numbers and + - * / ( ) are allowed"
-    return str(eval(expr, {"__builtins__": {}}))  # noqa: S307 - sanitised above
+    try:
+        return str(_safe_arith(ast.parse(expr, mode="eval").body))
+    except (SyntaxError, ValueError, ZeroDivisionError, TypeError):
+        return "error: not a valid arithmetic expression"
 
 
 @tool

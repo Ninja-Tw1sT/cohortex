@@ -9,11 +9,10 @@ Crew orchestration. Three topologies:
 """
 from __future__ import annotations
 
-import json
-import re
 from dataclasses import dataclass, field
 
 from cohortex.agent import Agent, AgentResult
+from cohortex.jsonutil import first_json
 
 
 @dataclass
@@ -71,7 +70,7 @@ class Crew:
                 'When you have enough to answer: {"final": "<answer to the user>"}.'
             )
             raw = self.supervisor.run(sup_prompt).output
-            action = _find_action(raw, ("agent", "final"))
+            action = first_json(raw, ("agent", "final"))
             if not action or "final" in action:
                 final = action["final"] if action and "final" in action else raw
                 return CrewResult(self.name, str(final).strip(), steps)
@@ -91,14 +90,3 @@ class Crew:
         )
         steps.append(r)
         return CrewResult(self.name, r.output, steps)
-
-
-def _find_action(text: str, keys: tuple[str, ...]) -> dict | None:
-    for m in re.finditer(r"\{[^{}]*\}", text, re.DOTALL):
-        try:
-            obj = json.loads(m.group(0))
-        except json.JSONDecodeError:
-            continue
-        if isinstance(obj, dict) and any(k in obj for k in keys):
-            return obj
-    return None

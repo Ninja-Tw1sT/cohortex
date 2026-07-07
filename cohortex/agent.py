@@ -8,9 +8,9 @@ example_agent.py — small open models rarely support the native tools API).
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field
 
+from cohortex.jsonutil import first_json
 from cohortex.profiles import AgentProfile
 from cohortex.prompts import build_messages, build_system
 from cohortex.providers import LLMBackend
@@ -46,7 +46,8 @@ class Agent:
         if self.tools and self.profile.tools:
             return self._run_react(task, hits, upstream)
         messages = build_messages(self.profile, task, hits, upstream)
-        out = self.backend.chat(messages, temperature=self.profile.temperature)
+        out = self.backend.chat(messages, temperature=self.profile.temperature,
+                                max_tokens=self.profile.max_tokens)
         return AgentResult(self.profile.name, out.strip(), out,
                            {"backend": self.backend.name, "context_hits": len(hits)})
 
@@ -64,8 +65,9 @@ class Agent:
                       {"role": "user", "content": user}]
 
         for step in range(1, max_steps + 1):
-            raw = self.backend.chat(transcript, temperature=self.profile.temperature)
-            action = _extract_json(raw)
+            raw = self.backend.chat(transcript, temperature=self.profile.temperature,
+                                    max_tokens=self.profile.max_tokens)
+            action = first_json(raw, ("tool", "answer"))
             if not action:
                 return AgentResult(self.profile.name, raw.strip(), raw, {"parse_error": True})
             if "answer" in action:
@@ -81,14 +83,3 @@ class Agent:
             })
         return AgentResult(self.profile.name, "(reached tool-step limit)", "",
                            {"tool_steps": max_steps})
-
-
-def _extract_json(text: str) -> dict | None:
-    for m in re.finditer(r"\{[^{}]*\}", text, re.DOTALL):
-        try:
-            obj = json.loads(m.group(0))
-        except json.JSONDecodeError:
-            continue
-        if isinstance(obj, dict) and ("tool" in obj or "answer" in obj):
-            return obj
-    return None
