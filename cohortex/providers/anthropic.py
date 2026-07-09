@@ -14,9 +14,9 @@ DEFAULT_MODEL = "claude-sonnet-4-5"
 
 @register("anthropic")
 class AnthropicBackend:
-    def __init__(self, model: str | None = None, **_):
+    def __init__(self, model: str | None = None, api_key: str | None = None, **_):
         self.model = model or DEFAULT_MODEL
-        self._key = os.getenv("ANTHROPIC_API_KEY", "")
+        self._key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
 
     def chat(self, messages, *, temperature: float = 0.3, max_tokens: int | None = None, **opts) -> str:
         try:

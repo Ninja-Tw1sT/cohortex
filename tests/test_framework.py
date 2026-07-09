@@ -12,7 +12,24 @@ from cohortex.agent import Agent
 from cohortex.jsonutil import first_json
 from cohortex.orchestrator import Crew
 from cohortex.profiles import AgentProfile
+from cohortex.providers import register
+from cohortex.runtime import build_agent
 from cohortex.tools import ToolRegistry, calculator, word_count
+
+
+@register("test-capture")
+class CaptureBackend:
+    """Records the api_key/base_url it was constructed with — proves build_agent
+    forwards AgentProfile.api_key/base_url through get_backend to the backend's
+    own constructor, not just to callers that build backends by hand."""
+
+    def __init__(self, model=None, api_key=None, base_url=None, **_):
+        self.model = model
+        self.api_key = api_key
+        self.base_url = base_url
+
+    def chat(self, messages, *, temperature=0.3, **opts):
+        return "captured"
 
 
 class ConstBackend:
@@ -55,6 +72,23 @@ def test_profile_from_dict_ignores_unknown_keys():
     )
     assert p.name == "r" and p.role == "Researcher" and p.vaults == ["kb"]
     assert not hasattr(p, "bogus")
+
+
+def test_build_agent_forwards_api_key_and_base_url_to_backend():
+    profile = AgentProfile(
+        name="r", role="Researcher", goal="g",
+        backend="test-capture", api_key="secret-key", base_url="http://example.test",
+    )
+    agent = build_agent(profile)
+    assert agent.backend.api_key == "secret-key"
+    assert agent.backend.base_url == "http://example.test"
+
+
+def test_build_agent_leaves_api_key_and_base_url_unset_by_default():
+    profile = AgentProfile(name="r", role="Researcher", goal="g", backend="test-capture")
+    agent = build_agent(profile)
+    assert agent.backend.api_key is None
+    assert agent.backend.base_url is None
 
 
 # ── tools ───────────────────────────────────────────────────────────────────

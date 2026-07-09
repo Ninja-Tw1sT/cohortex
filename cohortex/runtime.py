@@ -39,7 +39,7 @@ def get_vault(name: str, defs: dict | None = None) -> KnowledgeVault:
 
 def build_agent(profile: AgentProfile, defs: dict | None = None) -> Agent:
     defs = _vault_defs() if defs is None else defs
-    backend = get_backend(profile.backend, profile.model)
+    backend = get_backend(profile.backend, profile.model, api_key=profile.api_key, base_url=profile.base_url)
     vaults = [get_vault(n, defs) for n in profile.vaults]
     tools = ToolRegistry(profile.tools) if profile.tools else None
     return Agent(profile, backend, vaults, tools)

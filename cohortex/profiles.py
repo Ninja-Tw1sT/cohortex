@@ -17,6 +17,8 @@ class AgentProfile:
     temperature: float = 0.3
     max_tokens: int | None = None   # None → backend default (Anthropic uses 1024)
     system_prompt: str = ""
+    api_key: str | None = None      # None → backend reads its usual env var
+    base_url: str | None = None     # None → backend's default endpoint (e.g. Ollama)
     vaults: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
 

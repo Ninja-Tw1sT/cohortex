@@ -8,9 +8,9 @@ from . import register
 
 @register("gemini")
 class GeminiBackend:
-    def __init__(self, model: str | None = None, **_):
+    def __init__(self, model: str | None = None, api_key: str | None = None, **_):
         self.model = model or "gemini-2.5-flash"
-        self._key = os.getenv("GEMINI_API_KEY", "")
+        self._key = api_key or os.getenv("GEMINI_API_KEY", "")
 
     def chat(self, messages, *, temperature: float = 0.3, **opts) -> str:
         try:

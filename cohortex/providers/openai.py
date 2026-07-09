@@ -11,9 +11,9 @@ class _OpenAICompatible:
     _base_url: str | None = None
     _default_model = "gpt-4o-mini"
 
-    def __init__(self, model: str | None = None, **_):
+    def __init__(self, model: str | None = None, api_key: str | None = None, **_):
         self.model = model or self._default_model
-        self._key = os.getenv(self._api_key_env, "")
+        self._key = api_key or os.getenv(self._api_key_env, "")
 
     def chat(self, messages, *, temperature: float = 0.3, max_tokens: int | None = None, **opts) -> str:
         try:
