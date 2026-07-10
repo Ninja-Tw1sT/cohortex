@@ -8,6 +8,7 @@ example_agent.py — small open models rarely support the native tools API).
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from cohortex.docsource import DocumentSource
@@ -62,6 +63,44 @@ class Agent:
         if usage:
             meta["usage"] = usage
         return AgentResult(self.profile.name, out.strip(), out, meta)
+
+    def run_stream(self, task: str, upstream: str = "") -> Iterator[dict]:
+        """Yields {"type": "delta", "text": str} chunks as they arrive, then a
+        final {"type": "done", "result": AgentResult}. Falls back to a single
+        delta with the whole output if the backend has no chat_stream, or if
+        this agent uses tools — a ReAct loop needs each complete JSON response
+        to decide the next step, so there's nothing meaningful to stream mid-call."""
+        hits = self._gather_context(task)
+        if self.tools and self.profile.tools:
+            result = self._run_react(task, hits, upstream)
+            yield {"type": "delta", "text": result.output}
+            yield {"type": "done", "result": result}
+            return
+
+        messages = build_messages(self.profile, task, hits, upstream)
+        opts = {"num_ctx": self.profile.num_ctx} if self.profile.num_ctx else {}
+        stream_fn = getattr(self.backend, "chat_stream", None)
+        if stream_fn:
+            parts: list[str] = []
+            for chunk in stream_fn(messages, temperature=self.profile.temperature,
+                                   max_tokens=self.profile.max_tokens, **opts):
+                parts.append(chunk)
+                yield {"type": "delta", "text": chunk}
+            out = "".join(parts)
+        else:
+            out = self.backend.chat(messages, temperature=self.profile.temperature,
+                                    max_tokens=self.profile.max_tokens, **opts)
+            yield {"type": "delta", "text": out}
+
+        full_context_chars = sum(len(h["document"]) for h in hits if h.get("full_context"))
+        meta: dict = {"backend": self.backend.name, "context_hits": len(hits)}
+        if full_context_chars:
+            meta["full_context_chars"] = full_context_chars
+        usage = getattr(self.backend, "last_usage", None)
+        if usage:
+            meta["usage"] = usage
+        result = AgentResult(self.profile.name, out.strip(), out, meta)
+        yield {"type": "done", "result": result}
 
     def _run_react(self, task, hits, upstream, max_steps: int = 5) -> AgentResult:
         specs = self.tools.specs()

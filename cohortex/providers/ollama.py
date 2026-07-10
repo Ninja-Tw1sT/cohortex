@@ -45,3 +45,48 @@ class OllamaBackend:
             except Exception as e:  # noqa: BLE001
                 last = e
         raise RuntimeError(f"Ollama chat failed on {self._urls}: {last}")
+
+    def chat_stream(self, messages, *, temperature: float = 0.3, num_ctx: int | None = None, **opts):
+        import json
+
+        import httpx
+        options = {"temperature": temperature}
+        if num_ctx:
+            options["num_ctx"] = num_ctx
+        last = None
+        for url in self._urls:
+            started = False
+            try:
+                with httpx.stream(
+                    "POST", f"{url}/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "stream": True,
+                        "options": options,
+                    },
+                    timeout=self._timeout,
+                ) as r:
+                    r.raise_for_status()
+                    for line in r.iter_lines():
+                        if not line:
+                            continue
+                        data = json.loads(line)
+                        chunk = data.get("message", {}).get("content", "")
+                        if chunk:
+                            started = True
+                            yield chunk
+                        if data.get("done"):
+                            p = data.get("prompt_eval_count", 0)
+                            c = data.get("eval_count", 0)
+                            self.last_usage = {
+                                "prompt_tokens": p,
+                                "completion_tokens": c,
+                                "total_tokens": p + c,
+                            }
+                return
+            except Exception as e:  # noqa: BLE001
+                last = e
+                if started:
+                    raise RuntimeError(f"Ollama chat_stream failed mid-stream on {url}: {e}") from e
+        raise RuntimeError(f"Ollama chat_stream failed on {self._urls}: {last}")

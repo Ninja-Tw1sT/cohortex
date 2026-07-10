@@ -14,7 +14,7 @@ from cohortex.jsonutil import first_json
 from cohortex.orchestrator import Crew
 from cohortex.profiles import AgentProfile
 from cohortex.prompts import build_messages
-from cohortex.providers import register
+from cohortex.providers import FallbackBackend, register
 from cohortex.runtime import build_agent
 from cohortex.tools import ToolRegistry, calculator, make_dynamic_tool, word_count
 
@@ -92,6 +92,52 @@ class MessageCaptureBackend:
         return self._text
 
 
+class StreamingBackend:
+    """Yields chunks then sets last_usage — the streaming counterpart to UsageBackend."""
+    name = "streaming-test"
+    model = "test"
+
+    def __init__(self, chunks=("hello", " ", "world")):
+        self._chunks = list(chunks)
+        self.last_usage = None
+
+    def chat(self, messages, *, temperature=0.3, **opts):
+        return "".join(self._chunks)
+
+    def chat_stream(self, messages, *, temperature=0.3, **opts):
+        for c in self._chunks:
+            yield c
+        self.last_usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+
+class ConnectFailBackend:
+    """chat_stream fails before yielding anything — FallbackBackend should move
+    on to the next backend, same as a plain chat() failure would."""
+    name = "connect-fail"
+    model = "test"
+
+    def chat(self, messages, *, temperature=0.3, **opts):
+        raise RuntimeError("should not be called")
+
+    def chat_stream(self, messages, *, temperature=0.3, **opts):
+        raise RuntimeError("connection refused")
+
+
+class MidStreamFailBackend:
+    """Yields one chunk then raises — FallbackBackend must NOT fall back here,
+    since the caller already saw real output; retrying a different backend
+    would duplicate/corrupt what's already been streamed out."""
+    name = "midstream-fail"
+    model = "test"
+
+    def chat(self, messages, *, temperature=0.3, **opts):
+        raise RuntimeError("should not be called")
+
+    def chat_stream(self, messages, *, temperature=0.3, **opts):
+        yield "partial"
+        raise RuntimeError("boom")
+
+
 def _agent(name, backend, tools=None):
     profile = AgentProfile(name=name, role=name, goal="do the job", tools=tools or [])
     reg = ToolRegistry(tools) if tools else None
@@ -159,6 +205,66 @@ def test_react_loop_accumulates_usage_across_tool_steps():
     assert result.meta["usage"]["prompt_tokens"] == 30  # 10 + 20
     assert result.meta["usage"]["completion_tokens"] == 10  # 5 + 5
     assert result.meta["usage"]["total_tokens"] == 40  # 15 + 25
+
+
+# ── streaming ────────────────────────────────────────────────────────────────
+def test_agent_run_stream_yields_deltas_then_done_with_correct_output_and_usage():
+    a = _agent("solo", StreamingBackend(("hel", "lo ", "world")))
+    events = list(a.run_stream("task"))
+
+    deltas = [e for e in events if e["type"] == "delta"]
+    done = [e for e in events if e["type"] == "done"]
+    assert [d["text"] for d in deltas] == ["hel", "lo ", "world"]
+    assert len(done) == 1
+    result = done[0]["result"]
+    assert result.output == "hello world"
+    assert result.meta["usage"] == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+
+def test_agent_run_stream_falls_back_to_single_delta_without_chat_stream():
+    a = _agent("solo", ConstBackend("hi there"))
+    events = list(a.run_stream("task"))
+    assert len(events) == 2
+    assert events[0] == {"type": "delta", "text": "hi there"}
+    assert events[1]["type"] == "done"
+    assert events[1]["result"].output == "hi there"
+
+
+def test_agent_run_stream_with_tools_yields_single_delta_and_done():
+    backend = ScriptedBackend([
+        '{"tool": "calculator", "input": "6 * 7"}',
+        '{"answer": "42"}',
+    ])
+    a = _agent("mathy", backend, tools=["calculator"])
+    events = list(a.run_stream("what is 6 times 7"))
+    assert len(events) == 2
+    assert events[0] == {"type": "delta", "text": "42"}
+    assert events[1]["result"].output == "42"
+    assert events[1]["result"].meta.get("tool_steps") == 2
+
+
+def test_fallback_chat_stream_skips_backend_with_no_streaming_support():
+    fb = FallbackBackend([ConstBackend("no-stream"), StreamingBackend(("ok",))])
+    chunks = list(fb.chat_stream([{"role": "user", "content": "hi"}]))
+    assert chunks == ["ok"]
+    assert fb.last_usage == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+
+def test_fallback_chat_stream_falls_back_before_any_chunk_yielded():
+    fb = FallbackBackend([ConnectFailBackend(), StreamingBackend(("ok",))])
+    chunks = list(fb.chat_stream([{"role": "user", "content": "hi"}]))
+    assert chunks == ["ok"]
+
+
+def test_fallback_chat_stream_does_not_fall_back_mid_stream():
+    fb = FallbackBackend([MidStreamFailBackend(), StreamingBackend(("should-not-appear",))])
+    gen = fb.chat_stream([{"role": "user", "content": "hi"}])
+    assert next(gen) == "partial"
+    try:
+        next(gen)
+        assert False, "expected RuntimeError"
+    except RuntimeError as e:
+        assert "midstream-fail" in str(e)
 
 
 # ── long-context (opposite of RAG) ─────────────────────────────────────────

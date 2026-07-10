@@ -50,7 +50,8 @@ flowchart TD
 
 - **`LLMBackend`** — one `chat(messages) -> str` protocol; each provider is a small adapter.
   Selected per-agent, with a global default. Cloud SDKs load lazily, so local-only installs
-  stay tiny.
+  stay tiny. Every bundled backend also implements `chat_stream(messages) -> Iterator[str]`
+  for token-by-token output — optional and duck-typed, so a fake/test backend never needs it.
 - **`KnowledgeVault`** — a named ChromaDB collection with an embedder; `.search()` returns
   top-k context. Can point at an existing store (e.g. reuse another project's vault).
 - **`DocumentSource`** — the opposite of a vault: loads whole files verbatim into the
@@ -62,7 +63,11 @@ flowchart TD
   endpoint for that single agent — useful for BYOK (bring-your-own-key) scenarios in
   Cohortex Studio.
 - **`Agent`** — retrieves vault context, builds a role prompt, calls the backend; if it has
-  tools, runs a ReAct loop.
+  tools, runs a ReAct loop. `run()` returns a complete `AgentResult`; `run_stream()` yields
+  `{"type": "delta", "text": ...}` chunks as they arrive, then `{"type": "done", "result": ...}` —
+  falls back to a single delta for backends without `chat_stream` or for tool-using agents
+  (a ReAct loop needs each complete JSON response to decide its next step, so there's nothing
+  useful to stream mid-call there).
 - **`Crew`** — orchestrates agents: `single`, `sequential` (pipe outputs), or `supervisor`
   (a router delegates subtasks to specialists, then answers).
 
@@ -78,6 +83,7 @@ python examples/sequential_crew.py
 python examples/supervisor_crew.py
 python examples/long_context_agent.py
 python examples/rag_vs_long_context.py
+python examples/streaming_agent.py
 python run_all_examples.py  # runs every example, reports pass/fail
 ```
 

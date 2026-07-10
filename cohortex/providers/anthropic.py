@@ -57,3 +57,39 @@ class AnthropicBackend:
         return "".join(
             b.text for b in resp.content if getattr(b, "type", "") == "text"
         ).strip()
+
+    def chat_stream(self, messages, *, temperature: float = 0.3, max_tokens: int | None = None, **opts):
+        try:
+            import anthropic
+        except ImportError as e:
+            raise RuntimeError("Anthropic backend needs: pip install anthropic") from e
+        if not self._key:
+            raise RuntimeError("ANTHROPIC_API_KEY is not set")
+        client = anthropic.Anthropic(api_key=self._key)
+        system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
+        convo = [m for m in messages if m["role"] != "system"]
+        if not convo:
+            raise RuntimeError("Anthropic requires at least one user/assistant message")
+        system_param = (
+            [{"type": "text", "text": system_text,
+              "cache_control": {"type": "ephemeral"}}]
+            if system_text else None
+        )
+        with client.messages.stream(
+            model=self.model,
+            system=system_param,
+            messages=convo,
+            temperature=temperature,
+            max_tokens=max_tokens or 1024,
+        ) as stream:
+            yield from stream.text_stream
+            final = stream.get_final_message()
+            inp = getattr(final.usage, "input_tokens", 0)
+            out = getattr(final.usage, "output_tokens", 0)
+            self.last_usage = {
+                "prompt_tokens": inp,
+                "completion_tokens": out,
+                "total_tokens": inp + out,
+                "cache_read_input_tokens": getattr(final.usage, "cache_read_input_tokens", 0),
+                "cache_creation_input_tokens": getattr(final.usage, "cache_creation_input_tokens", 0),
+            }
