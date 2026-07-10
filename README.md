@@ -53,10 +53,14 @@ flowchart TD
   stay tiny.
 - **`KnowledgeVault`** — a named ChromaDB collection with an embedder; `.search()` returns
   top-k context. Can point at an existing store (e.g. reuse another project's vault).
+- **`DocumentSource`** — the opposite of a vault: loads whole files verbatim into the
+  context window, no embeddings or chunking. Trades token cost for guaranteed recall — see
+  [Long context vs. RAG](#long-context-vs-rag) below.
 - **`AgentProfile`** — the YAML that defines an agent: `role, goal, backend?, model?,
-  temperature?, max_tokens?, system_prompt?, api_key?, base_url?, vaults, tools`.
-  `api_key` and `base_url` override the default environment variable / endpoint for that
-  single agent — useful for BYOK (bring-your-own-key) scenarios in Cohortex Studio.
+  temperature?, max_tokens?, system_prompt?, api_key?, base_url?, vaults, context_docs,
+  num_ctx?, tools`. `api_key` and `base_url` override the default environment variable /
+  endpoint for that single agent — useful for BYOK (bring-your-own-key) scenarios in
+  Cohortex Studio.
 - **`Agent`** — retrieves vault context, builds a role prompt, calls the backend; if it has
   tools, runs a ReAct loop.
 - **`Crew`** — orchestrates agents: `single`, `sequential` (pipe outputs), or `supervisor`
@@ -72,7 +76,9 @@ ollama pull phi3:mini       # local model for the examples (no API key)
 python examples/single_agent.py
 python examples/sequential_crew.py
 python examples/supervisor_crew.py
-python run_all_examples.py  # runs all three, reports pass/fail
+python examples/long_context_agent.py
+python examples/rag_vs_long_context.py
+python run_all_examples.py  # runs every example, reports pass/fail
 ```
 
 CLI:
@@ -93,8 +99,18 @@ role: Research Analyst
 goal: list the key facts about the topic
 backend: anthropic          # ← override the global default just for this agent
 model: claude-sonnet-4-5
-vaults: [obsidian_vault]     # ← ground it in a specific knowledge base
+vaults: [obsidian_vault]     # ← ground it in a specific knowledge base (RAG)
 tools: [calculator]
+```
+
+Or skip retrieval entirely and load whole documents into context (long-context mode):
+
+```yaml
+# configs/agents/ops_analyst.yaml
+role: Ops Analyst
+goal: answer using the full document provided
+context_docs: [./docs/it_ops_manual]  # ← directory of files, loaded verbatim, no chunking
+num_ctx: 8192                          # ← Ollama context window (ignored by cloud backends)
 ```
 
 **Define a crew** (`configs/crews/research_team.yaml`):
@@ -124,6 +140,18 @@ Every backend captures per-call token usage (`prompt_tokens`, `completion_tokens
 live run view. Sequential crews support `max_handoff_chars` to truncate inter-agent context
 and bound token growth. The Anthropic backend uses `cache_control: ephemeral` on the system
 prompt so supervisor loops avoid re-tokenizing the same instructions each round.
+
+## Long context vs. RAG
+`KnowledgeVault` is retrieval-augmented generation: chunk a corpus, embed each chunk, and
+feed the model only the top-k most similar pieces — cheap per call, but a fact can be missed
+if its chunk doesn't embed close to the query. `DocumentSource` (`context_docs` on a
+profile) is the opposite: no embeddings, no chunking, the entire file goes into the context
+window every call — costlier per call, but recall is bounded only by the model's ability to
+read, not by a similarity search. Set `num_ctx` on a profile to raise Ollama's context window
+past its 2048-token default (cloud backends size their own window per model, no config
+needed). `examples/long_context_agent.py` runs a classic "needle in a haystack" recall test
+against a generated document; `examples/rag_vs_long_context.py` answers the same question
+both ways and prints the token cost of each so the tradeoff is visible, not asserted.
 
 ## Testing
 ```bash

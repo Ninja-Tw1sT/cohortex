@@ -9,9 +9,11 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from cohortex.agent import Agent
+from cohortex.docsource import DocumentSource
 from cohortex.jsonutil import first_json
 from cohortex.orchestrator import Crew
 from cohortex.profiles import AgentProfile
+from cohortex.prompts import build_messages
 from cohortex.providers import register
 from cohortex.runtime import build_agent
 from cohortex.tools import ToolRegistry, calculator, word_count
@@ -71,6 +73,23 @@ class ScriptedBackend:
         r = self._responses[min(self._i, len(self._responses) - 1)]
         self._i += 1
         return r
+
+
+class MessageCaptureBackend:
+    """Records the messages and opts it was called with — proves what actually
+    reached the backend (e.g. num_ctx, full document text in the prompt)."""
+    name = "capture-messages"
+    model = "capture-messages"
+
+    def __init__(self, text: str = "ok"):
+        self._text = text
+        self.last_messages = None
+        self.last_opts = None
+
+    def chat(self, messages, *, temperature=0.3, **opts):
+        self.last_messages = messages
+        self.last_opts = opts
+        return self._text
 
 
 def _agent(name, backend, tools=None):
@@ -140,6 +159,63 @@ def test_react_loop_accumulates_usage_across_tool_steps():
     assert result.meta["usage"]["prompt_tokens"] == 30  # 10 + 20
     assert result.meta["usage"]["completion_tokens"] == 10  # 5 + 5
     assert result.meta["usage"]["total_tokens"] == 40  # 15 + 25
+
+
+# ── long-context (opposite of RAG) ─────────────────────────────────────────
+def test_document_source_loads_full_files_verbatim(tmp_path):
+    (tmp_path / "a.md").write_text("alpha content", encoding="utf-8")
+    (tmp_path / "b.md").write_text("beta content", encoding="utf-8")
+    source = DocumentSource("docs", dir=str(tmp_path))
+    hits = source.load()
+    assert len(hits) == 2
+    assert all(h["full_context"] for h in hits)
+    docs = {h["document"] for h in hits}
+    assert docs == {"alpha content", "beta content"}
+    assert source.char_count() == len("alpha content") + len("beta content")
+
+
+def test_build_messages_renders_retrieved_and_full_context_separately():
+    profile = AgentProfile(name="a", role="Analyst", goal="answer")
+    hits = [
+        {"document": "chunk text", "title": "chunk.md", "distance": 0.1},
+        {"document": "whole file text", "title": "file.md", "full_context": True},
+    ]
+    messages = build_messages(profile, "the task", hits)
+    user_content = messages[1]["content"]
+    assert "## Context from knowledge vault(s)" in user_content
+    assert "## Full source document(s)" in user_content
+    assert "chunk text" in user_content
+    assert "whole file text" in user_content
+
+
+def test_agent_with_context_docs_sends_full_document_and_reports_chars(tmp_path):
+    (tmp_path / "manual.md").write_text("the secret code is BLUE-42-FALCON", encoding="utf-8")
+    source = DocumentSource("manual", dir=str(tmp_path))
+    profile = AgentProfile(name="ops", role="Ops", goal="answer from the document",
+                           context_docs=[str(tmp_path)])
+    backend = MessageCaptureBackend("BLUE-42-FALCON")
+    agent = Agent(profile, backend, doc_sources=[source])
+    result = agent.run("what is the code?")
+
+    assert "BLUE-42-FALCON" in backend.last_messages[1]["content"]
+    assert "## Full source document(s)" in backend.last_messages[1]["content"]
+    assert result.meta["full_context_chars"] == len("the secret code is BLUE-42-FALCON")
+
+
+def test_agent_forwards_num_ctx_to_backend_when_set():
+    profile = AgentProfile(name="ops", role="Ops", goal="answer", num_ctx=8192)
+    backend = MessageCaptureBackend()
+    agent = Agent(profile, backend)
+    agent.run("task")
+    assert backend.last_opts.get("num_ctx") == 8192
+
+
+def test_agent_omits_num_ctx_when_unset():
+    profile = AgentProfile(name="ops", role="Ops", goal="answer")
+    backend = MessageCaptureBackend()
+    agent = Agent(profile, backend)
+    agent.run("task")
+    assert "num_ctx" not in backend.last_opts
 
 
 # ── tools ───────────────────────────────────────────────────────────────────

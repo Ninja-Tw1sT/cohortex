@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
+from cohortex.docsource import DocumentSource
 from cohortex.jsonutil import first_json
 from cohortex.profiles import AgentProfile
 from cohortex.prompts import build_messages, build_system
@@ -29,16 +30,20 @@ class AgentResult:
 class Agent:
     def __init__(self, profile: AgentProfile, backend: LLMBackend,
                  vaults: list[KnowledgeVault] | None = None,
-                 tools: ToolRegistry | None = None):
+                 tools: ToolRegistry | None = None,
+                 doc_sources: list[DocumentSource] | None = None):
         self.profile = profile
         self.backend = backend
         self.vaults = vaults or []
         self.tools = tools
+        self.doc_sources = doc_sources or []
 
     def _gather_context(self, task: str) -> list[dict]:
         hits: list[dict] = []
         for v in self.vaults:
             hits.extend(v.search(task))
+        for d in self.doc_sources:
+            hits.extend(d.load())
         return hits
 
     def run(self, task: str, upstream: str = "") -> AgentResult:
@@ -46,9 +51,13 @@ class Agent:
         if self.tools and self.profile.tools:
             return self._run_react(task, hits, upstream)
         messages = build_messages(self.profile, task, hits, upstream)
+        opts = {"num_ctx": self.profile.num_ctx} if self.profile.num_ctx else {}
         out = self.backend.chat(messages, temperature=self.profile.temperature,
-                                max_tokens=self.profile.max_tokens)
+                                max_tokens=self.profile.max_tokens, **opts)
+        full_context_chars = sum(len(h["document"]) for h in hits if h.get("full_context"))
         meta: dict = {"backend": self.backend.name, "context_hits": len(hits)}
+        if full_context_chars:
+            meta["full_context_chars"] = full_context_chars
         usage = getattr(self.backend, "last_usage", None)
         if usage:
             meta["usage"] = usage

@@ -21,6 +21,8 @@ class AgentProfile:
     base_url: str | None = None     # None → backend's default endpoint (e.g. Ollama)
     vaults: list[str] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
+    context_docs: list[str] = field(default_factory=list)  # dirs of full documents (long-context mode)
+    num_ctx: int | None = None      # Ollama context window size; ignored by cloud backends
 
     @classmethod
     def from_dict(cls, d: dict) -> "AgentProfile":

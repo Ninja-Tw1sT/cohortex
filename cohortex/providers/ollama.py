@@ -13,8 +13,11 @@ class OllamaBackend:
         self._urls = [base_url or config.OLLAMA_BASE_URL]
         self._urls += fallback_urls if fallback_urls is not None else config.OLLAMA_FALLBACK_URLS
 
-    def chat(self, messages, *, temperature: float = 0.3, **opts) -> str:
+    def chat(self, messages, *, temperature: float = 0.3, num_ctx: int | None = None, **opts) -> str:
         import httpx
+        options = {"temperature": temperature}
+        if num_ctx:
+            options["num_ctx"] = num_ctx
         last = None
         for url in self._urls:
             try:
@@ -24,7 +27,7 @@ class OllamaBackend:
                         "model": self.model,
                         "messages": messages,
                         "stream": False,
-                        "options": {"temperature": temperature},
+                        "options": options,
                     },
                     timeout=180,
                 )

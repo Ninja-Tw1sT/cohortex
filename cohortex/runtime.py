@@ -10,6 +10,7 @@ import threading
 
 from cohortex import config
 from cohortex.agent import Agent
+from cohortex.docsource import DocumentSource
 from cohortex.orchestrator import Crew, CrewResult
 from cohortex.profiles import AgentProfile, load_profiles_dir
 from cohortex.providers import get_backend
@@ -42,7 +43,9 @@ def build_agent(profile: AgentProfile, defs: dict | None = None) -> Agent:
     backend = get_backend(profile.backend, profile.model, api_key=profile.api_key, base_url=profile.base_url)
     vaults = [get_vault(n, defs) for n in profile.vaults]
     tools = ToolRegistry(profile.tools) if profile.tools else None
-    return Agent(profile, backend, vaults, tools)
+    doc_sources = [DocumentSource(f"{profile.name}-{i}", dir=d)
+                    for i, d in enumerate(profile.context_docs)]
+    return Agent(profile, backend, vaults, tools, doc_sources)
 
 
 def load_crew(name: str) -> Crew:
