@@ -45,6 +45,9 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_FALLBACK_URLS = [
     u.strip() for u in os.getenv("OLLAMA_FALLBACK_URLS", "").split(",") if u.strip()
 ]
+# CPU inference on large context windows (long-context mode) routinely exceeds
+# a short timeout — 300s default, override per environment or per-backend.
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "300"))
 
 # Default vault store location (ChromaDB) + embedding model.
 VAULT_DB_PATH = Path(os.getenv("COHORTEX_DB_PATH", str(PROJECT_ROOT / ".vaults")))

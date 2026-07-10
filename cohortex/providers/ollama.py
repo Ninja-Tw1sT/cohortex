@@ -7,11 +7,12 @@ from . import register
 @register("ollama")
 class OllamaBackend:
     def __init__(self, model: str | None = None, base_url: str | None = None,
-                 fallback_urls: list[str] | None = None, **_):
+                 fallback_urls: list[str] | None = None, timeout: float | None = None, **_):
         from cohortex import config
         self.model = model or "phi3:mini"
         self._urls = [base_url or config.OLLAMA_BASE_URL]
         self._urls += fallback_urls if fallback_urls is not None else config.OLLAMA_FALLBACK_URLS
+        self._timeout = timeout if timeout is not None else config.OLLAMA_TIMEOUT
 
     def chat(self, messages, *, temperature: float = 0.3, num_ctx: int | None = None, **opts) -> str:
         import httpx
@@ -29,7 +30,7 @@ class OllamaBackend:
                         "stream": False,
                         "options": options,
                     },
-                    timeout=180,
+                    timeout=self._timeout,
                 )
                 r.raise_for_status()
                 data = r.json()
