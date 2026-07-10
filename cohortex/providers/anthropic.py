@@ -27,17 +27,33 @@ class AnthropicBackend:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
         client = anthropic.Anthropic(api_key=self._key)
         # Anthropic takes the system prompt as a top-level arg, not a message.
-        system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+        system_text = "\n".join(m["content"] for m in messages if m["role"] == "system")
         convo = [m for m in messages if m["role"] != "system"]
         if not convo:  # Anthropic 400s on an empty messages list
             raise RuntimeError("Anthropic requires at least one user/assistant message")
+        # Structured system with cache_control: in supervisor loops the same system
+        # prompt is sent every round — ephemeral caching avoids re-tokenizing it.
+        system_param = (
+            [{"type": "text", "text": system_text,
+              "cache_control": {"type": "ephemeral"}}]
+            if system_text else None
+        )
         resp = client.messages.create(
             model=self.model,
-            system=system or None,
+            system=system_param,
             messages=convo,
             temperature=temperature,
             max_tokens=max_tokens or 1024,
         )
+        inp = getattr(resp.usage, "input_tokens", 0)
+        out = getattr(resp.usage, "output_tokens", 0)
+        self.last_usage = {
+            "prompt_tokens": inp,
+            "completion_tokens": out,
+            "total_tokens": inp + out,
+            "cache_read_input_tokens": getattr(resp.usage, "cache_read_input_tokens", 0),
+            "cache_creation_input_tokens": getattr(resp.usage, "cache_creation_input_tokens", 0),
+        }
         return "".join(
             b.text for b in resp.content if getattr(b, "type", "") == "text"
         ).strip()

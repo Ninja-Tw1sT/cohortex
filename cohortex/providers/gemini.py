@@ -37,4 +37,12 @@ class GeminiBackend:
                 system_instruction=system or None, temperature=temperature,
             ),
         )
+        u = getattr(resp, "usage_metadata", None)
+        p = getattr(u, "prompt_token_count", 0) or 0 if u else 0
+        c = getattr(u, "candidates_token_count", 0) or 0 if u else 0
+        self.last_usage = {
+            "prompt_tokens": p,
+            "completion_tokens": c,
+            "total_tokens": p + c,
+        }
         return (resp.text or "").strip()

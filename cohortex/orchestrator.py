@@ -24,12 +24,14 @@ class CrewResult:
 
 class Crew:
     def __init__(self, name: str, agents: list[Agent], topology: str = "sequential",
-                 supervisor: Agent | None = None, max_rounds: int = 4):
+                 supervisor: Agent | None = None, max_rounds: int = 4,
+                 max_handoff_chars: int | None = None):
         self.name = name
         self.agents = agents
         self.topology = topology
         self.supervisor = supervisor
         self.max_rounds = max_rounds
+        self.max_handoff_chars = max_handoff_chars
         self._by_name = {a.profile.name: a for a in agents}
 
     def run(self, task: str) -> CrewResult:
@@ -49,6 +51,8 @@ class Crew:
             r = a.run(task, upstream=upstream)
             steps.append(r)
             upstream = r.output
+            if self.max_handoff_chars and len(upstream) > self.max_handoff_chars:
+                upstream = upstream[:self.max_handoff_chars] + "\n\n[truncated]"
         return CrewResult(self.name, steps[-1].output if steps else "", steps)
 
     def _supervisor(self, task: str) -> CrewResult:

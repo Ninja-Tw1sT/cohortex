@@ -27,6 +27,12 @@ class _OpenAICompatible:
         resp = client.chat.completions.create(
             model=self.model, messages=messages, temperature=temperature, **extra,
         )
+        u = resp.usage
+        self.last_usage = {
+            "prompt_tokens": u.prompt_tokens if u else 0,
+            "completion_tokens": u.completion_tokens if u else 0,
+            "total_tokens": u.total_tokens if u else 0,
+        }
         return (resp.choices[0].message.content or "").strip()
 
 

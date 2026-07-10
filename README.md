@@ -5,7 +5,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10+-00f5ff?style=for-the-badge&logo=python&logoColor=0b0714" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/backends-5-ff00cc?style=for-the-badge" alt="5 backends">
-  <img src="https://img.shields.io/badge/tests-7%2F7%20passing-39ff14?style=for-the-badge" alt="tests 7/7">
+  <img src="https://img.shields.io/github/actions/workflow/status/Ninja-Tw1sT/cohortex/ci.yml?style=for-the-badge&label=tests&color=39ff14" alt="CI">
   <img src="https://img.shields.io/badge/license-MIT-8a5cff?style=for-the-badge" alt="MIT">
   <img src="https://img.shields.io/badge/local--first-Ollama-00f5ff?style=for-the-badge" alt="local-first">
 </p>
@@ -53,8 +53,10 @@ flowchart TD
   stay tiny.
 - **`KnowledgeVault`** — a named ChromaDB collection with an embedder; `.search()` returns
   top-k context. Can point at an existing store (e.g. reuse another project's vault).
-- **`AgentProfile`** — the YAML that defines an agent: `role, goal, backend?, model?, vaults,
-  tools, system_prompt`.
+- **`AgentProfile`** — the YAML that defines an agent: `role, goal, backend?, model?,
+  temperature?, max_tokens?, system_prompt?, api_key?, base_url?, vaults, tools`.
+  `api_key` and `base_url` override the default environment variable / endpoint for that
+  single agent — useful for BYOK (bring-your-own-key) scenarios in Cohortex Studio.
 - **`Agent`** — retrieves vault context, builds a role prompt, calls the backend; if it has
   tools, runs a ReAct loop.
 - **`Crew`** — orchestrates agents: `single`, `sequential` (pipe outputs), or `supervisor`
@@ -90,7 +92,7 @@ python -m cohortex run research_team "Explain RAG in two sentences"
 role: Research Analyst
 goal: list the key facts about the topic
 backend: anthropic          # ← override the global default just for this agent
-model: claude-sonnet-5
+model: claude-sonnet-4-5
 vaults: [obsidian_vault]     # ← ground it in a specific knowledge base
 tools: [calculator]
 ```
@@ -114,6 +116,14 @@ from the environment — run `python setup_env.py` (hidden input, writes a gitig
 No secrets in code or config. Keys are read from the environment via `python-dotenv`;
 `setup_env.py` collects them with `getpass` (never echoed), verifies `.env` is gitignored
 before writing, and sets `0600` perms. Ollama needs no key at all.
+
+## Token accounting
+Every backend captures per-call token usage (`prompt_tokens`, `completion_tokens`,
+`total_tokens`) from the provider API response. `Agent.run()` includes it in
+`AgentResult.meta["usage"]`, making it available to callers, the CLI, and Cohortex Studio's
+live run view. Sequential crews support `max_handoff_chars` to truncate inter-agent context
+and bound token growth. The Anthropic backend uses `cache_control: ephemeral` on the system
+prompt so supervisor loops avoid re-tokenizing the same instructions each round.
 
 ## Testing
 ```bash

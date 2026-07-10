@@ -29,7 +29,15 @@ class OllamaBackend:
                     timeout=180,
                 )
                 r.raise_for_status()
-                return r.json()["message"]["content"].strip()
+                data = r.json()
+                p = data.get("prompt_eval_count", 0)
+                c = data.get("eval_count", 0)
+                self.last_usage = {
+                    "prompt_tokens": p,
+                    "completion_tokens": c,
+                    "total_tokens": p + c,
+                }
+                return data["message"]["content"].strip()
             except Exception as e:  # noqa: BLE001
                 last = e
         raise RuntimeError(f"Ollama chat failed on {self._urls}: {last}")

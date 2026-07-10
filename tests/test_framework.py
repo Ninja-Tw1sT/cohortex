@@ -44,6 +44,20 @@ class ConstBackend:
         return self._text
 
 
+class UsageBackend:
+    """Returns a fixed string and sets last_usage — proves Agent threads usage into meta."""
+    name = "usage-test"
+    model = "test"
+
+    def __init__(self, text: str = "output"):
+        self._text = text
+        self.last_usage = None
+
+    def chat(self, messages, *, temperature=0.3, **opts):
+        self.last_usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+        return self._text
+
+
 class ScriptedBackend:
     """Returns responses in order (last one repeats)."""
     name = "scripted"
@@ -89,6 +103,43 @@ def test_build_agent_leaves_api_key_and_base_url_unset_by_default():
     agent = build_agent(profile)
     assert agent.backend.api_key is None
     assert agent.backend.base_url is None
+
+
+# ── token accounting ────────────────────────────────────────────────────────
+def test_agent_run_includes_usage_in_meta():
+    a = _agent("solo", UsageBackend())
+    result = a.run("task")
+    assert result.meta["usage"] == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+
+def test_agent_run_without_usage_backend_has_no_usage_key():
+    a = _agent("solo", ConstBackend("hi"))
+    result = a.run("task")
+    assert "usage" not in result.meta
+
+
+def test_react_loop_accumulates_usage_across_tool_steps():
+    backend = ScriptedBackend([
+        '{"tool": "calculator", "input": "6 * 7"}',
+        '{"answer": "42"}',
+    ])
+    backend.last_usage = None
+
+    # Monkey-patch ScriptedBackend to set last_usage on each chat call
+    original_chat = backend.chat
+    call_count = [0]
+    def chat_with_usage(messages, *, temperature=0.3, **opts):
+        result = original_chat(messages, temperature=temperature, **opts)
+        call_count[0] += 1
+        backend.last_usage = {"prompt_tokens": 10 * call_count[0], "completion_tokens": 5, "total_tokens": 10 * call_count[0] + 5}
+        return result
+    backend.chat = chat_with_usage
+
+    a = _agent("mathy", backend, tools=["calculator"])
+    result = a.run("what is 6 times 7")
+    assert result.meta["usage"]["prompt_tokens"] == 30  # 10 + 20
+    assert result.meta["usage"]["completion_tokens"] == 10  # 5 + 5
+    assert result.meta["usage"]["total_tokens"] == 40  # 15 + 25
 
 
 # ── tools ───────────────────────────────────────────────────────────────────
@@ -144,6 +195,28 @@ def test_sequential_order_and_handoff():
     res = crew.run("task")
     assert [s.agent for s in res.steps] == ["researcher", "writer", "editor"]
     assert res.output == "STEP"
+
+
+def test_sequential_truncation_applies_max_handoff_chars():
+    class EchoUpstream:
+        name = "echo"
+        model = "echo"
+        def chat(self, messages, *, temperature=0.3, **opts):
+            user_msg = messages[-1]["content"] if messages else ""
+            return "TRUNCATED" if "[truncated]" in user_msg else "NOT_TRUNCATED"
+
+    crew = Crew("c", [_agent("a", ConstBackend("A" * 500)), _agent("b", EchoUpstream())],
+                topology="sequential", max_handoff_chars=100)
+    res = crew.run("task")
+    assert res.output == "TRUNCATED"
+    assert len(res.steps[0].output) == 500  # first agent's output is untruncated
+
+
+def test_sequential_no_truncation_when_under_limit():
+    crew = Crew("c", [_agent("a", ConstBackend("short")), _agent("b", ConstBackend("ok"))],
+                topology="sequential", max_handoff_chars=100)
+    res = crew.run("task")
+    assert res.output == "ok"
 
 
 def test_supervisor_delegates_then_finishes():

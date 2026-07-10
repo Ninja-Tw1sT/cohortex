@@ -68,6 +68,7 @@ def load_crew(name: str) -> Crew:
         topology=crew_cfg.get("topology", "sequential"),
         supervisor=supervisor,
         max_rounds=crew_cfg.get("max_rounds", 4),
+        max_handoff_chars=crew_cfg.get("max_handoff_chars"),
     )
 
 

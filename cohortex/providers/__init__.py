@@ -56,7 +56,9 @@ class FallbackBackend:
         errors = []
         for b in self._backends:
             try:
-                return b.chat(messages, temperature=temperature, **opts)
+                result = b.chat(messages, temperature=temperature, **opts)
+                self.last_usage = getattr(b, "last_usage", None)
+                return result
             except Exception as e:  # noqa: BLE001
                 errors.append(f"{b.name}: {e}")
         raise RuntimeError("All backends failed -> " + " | ".join(errors))
