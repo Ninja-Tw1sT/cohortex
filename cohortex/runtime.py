@@ -38,11 +38,15 @@ def get_vault(name: str, defs: dict | None = None) -> KnowledgeVault:
         return v
 
 
-def build_agent(profile: AgentProfile, defs: dict | None = None) -> Agent:
+def build_agent(profile: AgentProfile, defs: dict | None = None,
+                 dynamic_tools: dict[str, dict] | None = None) -> Agent:
+    # dynamic_tools is a per-call, per-run map (e.g. Cohortex Studio's Tool Shed
+    # HTTP tools) — it's threaded straight into this agent's own ToolRegistry
+    # instance, never merged into the global tool registry. See tools.ToolRegistry.
     defs = _vault_defs() if defs is None else defs
     backend = get_backend(profile.backend, profile.model, api_key=profile.api_key, base_url=profile.base_url)
     vaults = [get_vault(n, defs) for n in profile.vaults]
-    tools = ToolRegistry(profile.tools) if profile.tools else None
+    tools = ToolRegistry(profile.tools, extra=dynamic_tools) if profile.tools else None
     doc_sources = [DocumentSource(f"{profile.name}-{i}", dir=d)
                     for i, d in enumerate(profile.context_docs)]
     return Agent(profile, backend, vaults, tools, doc_sources)

@@ -16,7 +16,7 @@ from cohortex.profiles import AgentProfile
 from cohortex.prompts import build_messages
 from cohortex.providers import register
 from cohortex.runtime import build_agent
-from cohortex.tools import ToolRegistry, calculator, word_count
+from cohortex.tools import ToolRegistry, calculator, make_dynamic_tool, word_count
 
 
 @register("test-capture")
@@ -242,6 +242,110 @@ def test_tool_registry_scoping():
     assert reg.has("calculator")
     assert not reg.has("word_count")  # not in this agent's allowed set
     assert reg.run("calculator", "10 / 2") == "5.0"
+
+
+# ── dynamic (Tool Shed) tools ────────────────────────────────────────────────
+def _mock_public_dns(monkeypatch, ip="93.184.216.34"):
+    """Dynamic-tool registration/calls resolve their host via socket.getaddrinfo —
+    stub it so these tests never touch the real network, and so the resolved
+    address is controllable (see the DNS-rebinding test below)."""
+    import cohortex.tools as tools_mod
+    box = {"ip": ip}
+    monkeypatch.setattr(tools_mod.socket, "getaddrinfo",
+                         lambda host, port: [(None, None, None, None, (box["ip"], 0))])
+    return box
+
+
+def test_make_dynamic_tool_builtin_kind_returns_none():
+    # Builtins already live in the global registry — nothing to build.
+    assert make_dynamic_tool("calculator", "", "builtin") is None
+
+
+def test_make_dynamic_tool_rejects_missing_url_template():
+    import pytest
+    with pytest.raises(ValueError):
+        make_dynamic_tool("lookup", "", "http", method="GET", url_template="")
+
+
+def test_make_dynamic_tool_rejects_unsafe_literal_host():
+    import pytest
+    with pytest.raises(ValueError):
+        make_dynamic_tool("lookup", "", "http", method="GET",
+                           url_template="http://169.254.169.254/latest/meta-data/")
+
+
+def test_make_dynamic_tool_rejects_input_controlled_host():
+    # Letting the tool's own argument choose the host would make this an open
+    # proxy — {input} is only allowed in the path/query.
+    import pytest
+    with pytest.raises(ValueError):
+        make_dynamic_tool("fetch", "", "http", method="GET", url_template="https://{input}/")
+
+
+def test_dynamic_tool_extra_is_instance_scoped_not_global(monkeypatch):
+    from cohortex.tools import _TOOLS
+
+    _mock_public_dns(monkeypatch)
+    entry = make_dynamic_tool("lookup", "test tool", "http", method="GET",
+                               url_template="https://example.com/{input}")
+    reg = ToolRegistry(["lookup"], extra={"lookup": entry})
+    assert reg.has("lookup")
+    assert "lookup" not in _TOOLS  # never touches the shared global registry
+
+    other_reg = ToolRegistry(["lookup"])  # no extra passed — simulates a concurrent run
+    assert not other_reg.has("lookup")
+
+
+def test_dynamic_http_tool_get_calls_configured_url(monkeypatch):
+    _mock_public_dns(monkeypatch)
+    calls = []
+
+    class FakeResponse:
+        text = "42 degrees"
+        def raise_for_status(self):
+            pass
+
+    def fake_get(url, params=None, headers=None, timeout=None, follow_redirects=None):
+        calls.append((url, params))
+        return FakeResponse()
+
+    # _http_tool_fn does a local `import httpx`, which resolves to the same
+    # module object in sys.modules — patching it here takes effect there too.
+    import httpx as real_httpx
+    monkeypatch.setattr(real_httpx, "get", fake_get)
+
+    entry = make_dynamic_tool("weather", "look up weather", "http", method="GET",
+                               url_template="https://api.example.com/weather?city={input}")
+    result = entry["fn"]("paris")
+    assert result == "42 degrees"
+    assert calls[0][0] == "https://api.example.com/weather?city=paris"
+
+
+def test_dynamic_http_tool_revalidates_host_on_every_call_dns_rebinding(monkeypatch):
+    # Registration-time resolution sees a public IP; a later call's resolution
+    # returns a private one (DNS rebinding) — the call must still be blocked,
+    # proving the safety check re-resolves on every call rather than caching.
+    box = _mock_public_dns(monkeypatch, ip="93.184.216.34")
+
+    entry = make_dynamic_tool("fetch", "", "http", method="GET",
+                               url_template="https://rebind.example.com/status")
+
+    box["ip"] = "127.0.0.1"
+    result = entry["fn"]("ignored")
+    assert result.startswith("error:")
+    assert "not allowed" in result
+
+
+def test_is_safe_url_blocks_private_and_loopback_and_metadata(monkeypatch):
+    from cohortex.tools import _is_safe_url
+    assert not _is_safe_url("http://127.0.0.1/")
+    assert not _is_safe_url("http://localhost/")
+    assert not _is_safe_url("http://10.0.0.5/")
+    assert not _is_safe_url("http://169.254.169.254/")
+    assert not _is_safe_url("http://metadata.google.internal/")
+    assert not _is_safe_url("ftp://example.com/")
+    _mock_public_dns(monkeypatch)
+    assert _is_safe_url("https://example.com/path")
 
 
 # ── agent (single) ────────────────────────────────────────────────────────────
