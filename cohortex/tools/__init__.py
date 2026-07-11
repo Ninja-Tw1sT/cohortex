@@ -175,6 +175,63 @@ def defang_iocs(text: str) -> str:
     return text
 
 
+# Android's official "dangerous" protection-level permissions, grouped per
+# https://developer.android.com/guide/topics/permissions/overview — stable,
+# publicly documented platform data, not scraped or guessed. Unprefixed name
+# (without "android.permission.") -> permission group.
+_ANDROID_DANGEROUS_PERMISSIONS: dict[str, str] = {
+    "READ_CALENDAR": "Calendar", "WRITE_CALENDAR": "Calendar",
+    "READ_CALL_LOG": "Call Log", "WRITE_CALL_LOG": "Call Log", "PROCESS_OUTGOING_CALLS": "Call Log",
+    "CAMERA": "Camera",
+    "READ_CONTACTS": "Contacts", "WRITE_CONTACTS": "Contacts", "GET_ACCOUNTS": "Contacts",
+    "ACCESS_FINE_LOCATION": "Location", "ACCESS_COARSE_LOCATION": "Location",
+    "ACCESS_BACKGROUND_LOCATION": "Location",
+    "RECORD_AUDIO": "Microphone",
+    "READ_PHONE_STATE": "Phone", "READ_PHONE_NUMBERS": "Phone", "CALL_PHONE": "Phone",
+    "ANSWER_PHONE_CALLS": "Phone", "ADD_VOICEMAIL": "Phone", "USE_SIP": "Phone", "ACCEPT_HANDOVER": "Phone",
+    "BODY_SENSORS": "Sensors", "BODY_SENSORS_BACKGROUND": "Sensors",
+    "SEND_SMS": "SMS", "RECEIVE_SMS": "SMS", "READ_SMS": "SMS", "RECEIVE_WAP_PUSH": "SMS", "RECEIVE_MMS": "SMS",
+    "READ_EXTERNAL_STORAGE": "Storage", "WRITE_EXTERNAL_STORAGE": "Storage",
+    "READ_MEDIA_IMAGES": "Storage", "READ_MEDIA_VIDEO": "Storage", "READ_MEDIA_AUDIO": "Storage",
+    "ACTIVITY_RECOGNITION": "Activity Recognition",
+    "BLUETOOTH_ADVERTISE": "Nearby Devices", "BLUETOOTH_CONNECT": "Nearby Devices",
+    "BLUETOOTH_SCAN": "Nearby Devices", "UWB_RANGING": "Nearby Devices",
+    "POST_NOTIFICATIONS": "Notifications",
+}
+
+
+def _normalize_permission(raw: str) -> str:
+    p = raw.strip()
+    if p.startswith("android.permission."):
+        p = p[len("android.permission."):]
+    return p.upper()
+
+
+@tool
+def android_permission_risk(permissions: str) -> str:
+    """Classify a comma/newline-separated list of Android permissions (e.g. 'android.permission.CAMERA, android.permission.READ_SMS') against Android's official dangerous-permission groups, flagging which requested permissions are high-risk and worth justifying in a security review."""
+    raw_items = [p for p in re.split(r"[,\n]+", permissions) if p.strip()]
+    if not raw_items:
+        return "error: no permissions provided"
+    dangerous: list[str] = []
+    other: list[str] = []
+    for raw in raw_items:
+        name = _normalize_permission(raw)
+        group = _ANDROID_DANGEROUS_PERMISSIONS.get(name)
+        if group:
+            dangerous.append(f"{name} ({group})")
+        else:
+            other.append(name)
+    lines = [f"{len(dangerous)}/{len(raw_items)} requested permissions are Android 'dangerous' protection level:"]
+    if dangerous:
+        lines.extend(f"  - {d}" for d in dangerous)
+    else:
+        lines.append("  (none)")
+    if other:
+        lines.append(f"Not in the dangerous list (normal/signature/custom, or unrecognized): {', '.join(other)}")
+    return "\n".join(lines)
+
+
 # ── Dynamic HTTP tools (Tool Shed) ──────────────────────────────────────────
 # User-defined tools that call an external URL. Never registered globally —
 # see the ToolRegistry docstring above for why.

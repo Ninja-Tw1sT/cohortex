@@ -18,6 +18,7 @@ from cohortex.providers import FallbackBackend, register
 from cohortex.runtime import build_agent
 from cohortex.tools import (
     ToolRegistry,
+    android_permission_risk,
     calculator,
     contrast_ratio,
     defang_iocs,
@@ -413,6 +414,33 @@ def test_defang_iocs_does_not_false_positive_on_ordinary_prose():
     # ('3.12') must survive untouched.
     text = "e.g. this is normal prose, and Python 3.12 is not an IP"
     assert defang_iocs(text) == text
+
+
+def test_android_permission_risk_flags_dangerous_permissions():
+    out = android_permission_risk("android.permission.CAMERA, android.permission.READ_SMS, android.permission.INTERNET")
+    assert out.startswith("2/3 requested permissions are Android 'dangerous' protection level:")
+    assert "CAMERA (Camera)" in out
+    assert "READ_SMS (SMS)" in out
+    assert "Not in the dangerous list" in out
+    assert "INTERNET" in out.split("Not in the dangerous list")[1]
+
+
+def test_android_permission_risk_is_case_insensitive_and_accepts_newlines():
+    out = android_permission_risk("camera, record_audio\naccess_fine_location")
+    assert out.startswith("3/3 requested permissions are Android 'dangerous' protection level:")
+    assert "CAMERA (Camera)" in out
+    assert "RECORD_AUDIO (Microphone)" in out
+    assert "ACCESS_FINE_LOCATION (Location)" in out
+
+
+def test_android_permission_risk_all_normal_permissions():
+    out = android_permission_risk("INTERNET, ACCESS_NETWORK_STATE")
+    assert out.startswith("0/2 requested permissions are Android 'dangerous' protection level:")
+    assert "(none)" in out
+
+
+def test_android_permission_risk_rejects_empty_input():
+    assert android_permission_risk("") == "error: no permissions provided"
 
 
 def test_tool_registry_scoping():
