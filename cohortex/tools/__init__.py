@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import ast
 import ipaddress
+import math
 import operator
+import re
 import socket
 from typing import Callable
 from urllib.parse import urlsplit
@@ -94,6 +96,83 @@ def calculator(expr: str) -> str:
 def word_count(text: str) -> str:
     """Count the words in a string."""
     return str(len(text.split()))
+
+
+def _parse_hex_color(raw: str) -> tuple[int, int, int]:
+    s = raw.strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(c * 2 for c in s)
+    if len(s) != 6 or any(c not in "0123456789abcdefABCDEF" for c in s):
+        raise ValueError(f"{raw!r} is not a valid hex color")
+    return int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
+
+
+def _relative_luminance(r: int, g: int, b: int) -> float:
+    def lin(c: int) -> float:
+        c = c / 255.0
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
+@tool
+def contrast_ratio(pair: str) -> str:
+    """Compute the WCAG 2.x contrast ratio between two hex colors, e.g. '2E86AB, FFFFFF', and report AA/AAA pass/fail for normal and large text."""
+    parts = [p for p in re.split(r"[,\s]+", pair.strip()) if p]
+    if len(parts) != 2:
+        return "error: expected two hex colors separated by a comma or space, e.g. '2E86AB, FFFFFF'"
+    try:
+        c1, c2 = _parse_hex_color(parts[0]), _parse_hex_color(parts[1])
+    except ValueError as e:
+        return f"error: {e}"
+    l1, l2 = _relative_luminance(*c1), _relative_luminance(*c2)
+    lighter, darker = max(l1, l2), min(l1, l2)
+    ratio = (lighter + 0.05) / (darker + 0.05)
+    aa_normal = "pass" if ratio >= 4.5 else "fail"
+    aa_large = "pass" if ratio >= 3.0 else "fail"
+    aaa_normal = "pass" if ratio >= 7.0 else "fail"
+    aaa_large = "pass" if ratio >= 4.5 else "fail"
+    return (
+        f"contrast ratio {ratio:.2f}:1 — "
+        f"AA normal text: {aa_normal}, AA large text: {aa_large}, "
+        f"AAA normal text: {aaa_normal}, AAA large text: {aaa_large}"
+    )
+
+
+@tool
+def shannon_entropy(text: str) -> str:
+    """Compute the Shannon entropy (bits/byte) of a string's UTF-8 bytes — a standard static-analysis signal for detecting packed, encrypted, or compressed content (plain text/code typically runs ~4-6 bits/byte; ~7.2-8 suggests packing or encryption)."""
+    data = text.encode("utf-8", errors="surrogateescape")
+    if not data:
+        return "error: empty input"
+    counts: dict[int, int] = {}
+    for b in data:
+        counts[b] = counts.get(b, 0) + 1
+    n = len(data)
+    entropy = max(0.0, -sum((c / n) * math.log2(c / n) for c in counts.values()))
+    if entropy >= 7.2:
+        verdict = "high — consistent with compressed, encrypted, or packed data"
+    elif entropy >= 6.0:
+        verdict = "moderate-high — denser than typical plain text, worth a closer look"
+    elif entropy >= 3.5:
+        verdict = "typical — consistent with plain text or uncompressed code"
+    else:
+        verdict = "low — consistent with highly repetitive or uniform data"
+    return f"entropy: {entropy:.2f} bits/byte (max 8.0) — {verdict}"
+
+
+_DEFANG_SCHEME_RE = re.compile(r"(?i)\bhttp(s?)://")
+_DEFANG_HOST_RE = re.compile(
+    r"\b(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|(?:\d{1,3}\.){3}\d{1,3})\b"
+)
+
+
+@tool
+def defang_iocs(text: str) -> str:
+    """Defang IPs, domains, and URLs in a block of text (e.g. 1.2.3.4 -> 1[.]2[.]3[.]4, http:// -> hxxp[://]) so indicators of compromise can be shared in a report without becoming live, clickable links."""
+    text = _DEFANG_SCHEME_RE.sub(lambda m: f"hxxp{m.group(1)}[://]", text)
+    text = _DEFANG_HOST_RE.sub(lambda m: m.group(0).replace(".", "[.]"), text)
+    return text
 
 
 # ── Dynamic HTTP tools (Tool Shed) ──────────────────────────────────────────

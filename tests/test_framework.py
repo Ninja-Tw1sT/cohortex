@@ -16,7 +16,15 @@ from cohortex.profiles import AgentProfile
 from cohortex.prompts import build_messages
 from cohortex.providers import FallbackBackend, register
 from cohortex.runtime import build_agent
-from cohortex.tools import ToolRegistry, calculator, make_dynamic_tool, word_count
+from cohortex.tools import (
+    ToolRegistry,
+    calculator,
+    contrast_ratio,
+    defang_iocs,
+    make_dynamic_tool,
+    shannon_entropy,
+    word_count,
+)
 
 
 @register("test-capture")
@@ -341,6 +349,70 @@ def test_first_json_handles_nested_and_selection():
     # Skips objects that lack the required keys, returns the first that matches.
     assert first_json('{"other": 1} {"answer": "42"}', ("answer",)) == {"answer": "42"}
     assert first_json("no json here", ("answer",)) is None
+
+
+def test_contrast_ratio_matches_known_wcag_values():
+    # Black on white is the theoretical max (21:1); near-identical grays are near 1:1.
+    assert contrast_ratio("000000, FFFFFF") == (
+        "contrast ratio 21.00:1 — AA normal text: pass, AA large text: pass, "
+        "AAA normal text: pass, AAA large text: pass"
+    )
+    low = contrast_ratio("777777, 808080")
+    assert low.startswith("contrast ratio 1.1")
+    assert "AA normal text: fail" in low
+    # #2E86AB on white is a known real-world borderline case: passes for large
+    # text (>=3:1) but fails the stricter normal-text AA threshold (4.5:1).
+    borderline = contrast_ratio("2E86AB, FFFFFF")
+    assert "AA normal text: fail" in borderline
+    assert "AA large text: pass" in borderline
+    # order shouldn't matter — ratio is symmetric
+    assert contrast_ratio("FFFFFF, 000000") == contrast_ratio("000000, FFFFFF")
+    # 3-digit shorthand hex
+    assert contrast_ratio("000, fff") == contrast_ratio("000000, ffffff")
+
+
+def test_contrast_ratio_rejects_bad_input():
+    assert contrast_ratio("not-a-color, FFFFFF").startswith("error")
+    assert contrast_ratio("FFFFFF").startswith("error")
+    assert contrast_ratio("").startswith("error")
+
+
+def test_shannon_entropy_ranks_repetitive_below_random():
+    repetitive = shannon_entropy("a" * 64)
+    english = shannon_entropy("the quick brown fox jumps over the lazy dog " * 3)
+    assert repetitive.startswith("entropy: 0.00")
+    assert "low" in repetitive
+    assert "typical" in english
+    # A uniform 256-byte-value spread is the theoretical max (8.0 bits/byte).
+    # Round-trip through surrogateescape (the same handler shannon_entropy uses)
+    # so all 256 raw byte values survive the str type unchanged — chr(i) for
+    # i in range(256) would NOT do this, since UTF-8 multi-byte-encodes
+    # codepoints 128-255 into overlapping continuation bytes.
+    all_byte_values = bytes(range(256)).decode("utf-8", errors="surrogateescape")
+    maximal = shannon_entropy(all_byte_values)
+    assert "entropy: 8.00" in maximal
+    assert "high" in maximal
+
+
+def test_shannon_entropy_rejects_empty_input():
+    assert shannon_entropy("") == "error: empty input"
+
+
+def test_defang_iocs_neutralizes_urls_ips_and_domains():
+    out = defang_iocs("Beacon at 1.2.3.4 called http://evil.example.com/gate.php")
+    assert "1[.]2[.]3[.]4" in out
+    assert "hxxp[://]" in out
+    assert "evil[.]example[.]com" in out
+    assert "http://" not in out
+    # https keeps its 's' before the bracketed scheme separator
+    assert "hxxps[://]" in defang_iocs("see https://sub.example.co.uk/x")
+
+
+def test_defang_iocs_does_not_false_positive_on_ordinary_prose():
+    # Single-letter TLD-shaped suffixes ('e.g.') and non-IPv4 dotted numbers
+    # ('3.12') must survive untouched.
+    text = "e.g. this is normal prose, and Python 3.12 is not an IP"
+    assert defang_iocs(text) == text
 
 
 def test_tool_registry_scoping():
